@@ -1,13 +1,14 @@
-#include <stdio.h>
 #include <stdbool.h>
 #include <graphx.h>
 #include <tice.h>
+#include <keypadc.h>
 
 #include "paddle.h"
 
 point poi;
 dimen size;
 bool gameActive = false;
+kb_key_t key;
 
 int main(void) {
 	os_ClrHome();
@@ -25,11 +26,33 @@ int main(void) {
 	initPaddle(size);
 	drawPaddle(poi);
 
-	while (!os_GetCSC());
+	do {
+		kb_Scan();
 
-	while (gameActive) {
+		key = kb_Data[7];
 
-	}
+		switch (key) {
+			case kb_Down:
+				movePaddle(DOWN);
+				break;
+
+			case kb_Right:
+				movePaddle(RIGHT);
+				break;
+
+			case kb_Up:
+				movePaddle(UP);
+				break;
+
+			case kb_Left:
+				movePaddle(LEFT);
+				break;
+
+			default:
+				break;
+		}
+
+	} while(kb_Data[1] != kb_2nd);
 
 	gfx_End();
 

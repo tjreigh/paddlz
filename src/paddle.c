@@ -22,20 +22,12 @@ void drawPaddle(point p) {
 	loc_ptr->y = p.y;
 }
 
-void move() {
+void movePaddle(dir d) {
 	point newLoc;
-	if (kb_Data[7] & kb_Up) {
-		//loc.y += 2;
-		//point newLoc;
-		newLoc.x = loc.x;
-		newLoc.y = loc.y + 2;
-		drawPaddle(newLoc);
-	}
-	if (kb_Data[7] & kb_Down) {
-		//loc.y -= 2;
-		//point newLoc;
-		newLoc.x = loc.x;
-		newLoc.y = loc.y + 2;
-		drawPaddle(newLoc);
-	}
+	int amnt;
+	if (d == 0) amnt = -2;
+	else if (d == 1) amnt = 2;
+	newLoc.x = loc.x;
+	newLoc.y = loc.y + amnt;
+	drawPaddle(newLoc);
 }

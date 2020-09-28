@@ -9,6 +9,13 @@ typedef struct dimen {
 	int len;
 } dimen;
 
+typedef enum dir {
+	UP, 
+	DOWN, 
+	LEFT, 
+	RIGHT 
+} dir;
+
 extern void initPaddle(dimen s);
 extern void drawPaddle(point p);
-extern void move();
+extern void movePaddle(dir d);
