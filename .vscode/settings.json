@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    "cmath": "c",
+    "limits": "c",
+    "*.tcc": "c",
+    "tice.h": "c"
+  }
+}

@@ -1,33 +1,49 @@
+#include <stdlib.h>
 #include <stdbool.h>
+
 #include <graphx.h>
-#include <keypadc.h>
+#include <tice.h>
+#include <debug.h>
 
 #include "paddle.h"
 
-point loc;
-dimen siz;
-point *loc_ptr = &loc;
-dimen *size_ptr = &siz;
+#define BG_COLOR     255
+#define PADDLE_COLOR 0
 
-void initPaddle(dimen s) {
-	gfx_FillRectangle(2, 2, s.width, s.len);
-	size_ptr->width = s.width;
-	size_ptr->len = s.len;
+void initPaddle(point_t *point)
+{
+	dbg_printf("init\n");
+	gfx_SwapDraw();
+
+	gfx_SetColor(BG_COLOR);
+	gfx_FillRectangle(0, 0, 240, 240);
+
+	point->y = INIT_Y_LOC;
+
+	gfx_SetColor(PADDLE_COLOR);
+	gfx_FillRectangle_NoClip(INIT_X_LOC, point->y, PADDLE_WIDTH, PADDLE_LEN);
+
+	gfx_SwapDraw();
 }
 
-void drawPaddle(point p) {
-	gfx_FillRectangle(p.x, p.y, siz.width, siz.len);
+void movePaddle(dir_t d, point_t *point)
+{
+	gfx_SwapDraw();
 
-	loc_ptr->x = p.x;
-	loc_ptr->y = p.y;
+	gfx_SetColor(BG_COLOR);
+	gfx_FillRectangle(0, 0, 240, 240);
+
+	int amnt = (d == 0) ? -2 : 2;
+
+	point->y = point->y + amnt;
+
+	gfx_SetColor(PADDLE_COLOR);
+	gfx_FillRectangle_NoClip(INIT_X_LOC, point->y, PADDLE_WIDTH, PADDLE_LEN);
+
+	gfx_SwapDraw();
 }
 
-void movePaddle(dir d) {
-	point newLoc;
-	int amnt;
-	if (d == 0) amnt = -2;
-	else if (d == 1) amnt = 2;
-	newLoc.x = loc.x;
-	newLoc.y = loc.y + amnt;
-	drawPaddle(newLoc);
+void updatePaddle()
+{
+	
 }

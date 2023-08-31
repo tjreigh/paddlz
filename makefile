@@ -12,4 +12,4 @@ DESCRIPTION ?= "Pong game made by Trevor Reigh"
 
 # ----------------------------
 
-include $(CEDEV)/include/.makefile
+include $(CEDEV)/meta/makefile.mk

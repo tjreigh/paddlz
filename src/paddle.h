@@ -1,21 +1,20 @@
-typedef struct point {
+#define PADDLE_WIDTH 8
+#define PADDLE_LEN 30
+#define INIT_X_LOC 2
+#define INIT_Y_LOC 30
+
+typedef struct point_t
+{
 	int x;
 	int y;
-	struct point* pt;
-} point;
+} point_t;
 
-typedef struct dimen {
-	int width;
-	int len;
-} dimen;
+typedef enum dir_t
+{
+	UP,
+	DOWN
+} dir_t;
 
-typedef enum dir {
-	UP, 
-	DOWN, 
-	LEFT, 
-	RIGHT 
-} dir;
-
-extern void initPaddle(dimen s);
-extern void drawPaddle(point p);
-extern void movePaddle(dir d);
+void initPaddle(point_t *point);
+void movePaddle(dir_t, point_t *point);
+void updatePaddle();

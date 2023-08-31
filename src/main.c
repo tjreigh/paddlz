@@ -1,60 +1,58 @@
 #include <stdbool.h>
+
 #include <graphx.h>
 #include <tice.h>
 #include <keypadc.h>
 
 #include "paddle.h"
+#include "draw.h"
 
-point poi;
-dimen size;
-bool gameActive = false;
-kb_key_t key;
+bool gameActive = true;
+bool move = false;
+dir_t moveDir;
 
-int main(void) {
+void quit() {
+	gameActive = false;
+	gfx_End();
+	exit(0);
+}
+
+void updateKeyboard()
+{
+	kb_key_t g1 = kb_Data[1];
+	kb_key_t g7 = kb_Data[7];
+
+	kb_Scan();
+
+	if (g7 & kb_Down) {
+		move = true;
+		moveDir = DOWN;
+	} else if (g7 & kb_Up) {
+		move = true;
+		moveDir = UP;
+	}
+
+	if (g1 & kb_2nd) {
+		quit();
+	}
+}
+
+int main(void)
+{
+	point_t *paddle = NULL;
+
 	os_ClrHome();
 
 	gfx_Begin();
 
-	gfx_SetColor(227);
+	paddle = calloc(1, sizeof(point_t));
+	initPaddle(paddle);
 
-	poi.x = 2;
-	poi.y = 20;
-
-	size.width = 8;
-	size.len = 30;
-
-	initPaddle(size);
-	drawPaddle(poi);
-
-	do {
-		kb_Scan();
-
-		key = kb_Data[7];
-
-		switch (key) {
-			case kb_Down:
-				movePaddle(DOWN);
-				break;
-
-			case kb_Right:
-				movePaddle(RIGHT);
-				break;
-
-			case kb_Up:
-				movePaddle(UP);
-				break;
-
-			case kb_Left:
-				movePaddle(LEFT);
-				break;
-
-			default:
-				break;
-		}
-
-	} while(kb_Data[1] != kb_2nd);
-
-	gfx_End();
+	do
+	{
+		updateKeyboard();
+		updatePaddle(paddle);
+	} while (gameActive);
 
 	return 0;
 }
