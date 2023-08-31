@@ -15,6 +15,16 @@ typedef enum dir_t
 	DOWN
 } dir_t;
 
-void initPaddle(point_t *point);
-void movePaddle(dir_t, point_t *point);
-void updatePaddle();
+typedef struct paddle_t
+{
+	point_t pos;
+	dir_t move_dir;
+	bool should_move;
+	bool is_colliding;
+	bool hit_wall;
+}
+paddle_t;
+
+paddle_t* initPaddle();
+void movePaddle(paddle_t*);
+void updatePaddle(paddle_t*);

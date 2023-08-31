@@ -4,17 +4,27 @@
 #include <tice.h>
 #include <keypadc.h>
 
+#include "main.h"
 #include "paddle.h"
 #include "draw.h"
 
 bool gameActive = true;
-bool move = false;
-dir_t moveDir;
+paddle_t* paddle;
 
-void quit() {
-	gameActive = false;
-	gfx_End();
-	exit(0);
+int main(void)
+{
+	os_ClrHome();
+	gfx_Begin();
+
+	paddle = initPaddle();
+
+	do
+	{
+		updateKeyboard();
+		updatePaddle(paddle);
+	} while (gameActive);
+
+	return 0;
 }
 
 void updateKeyboard()
@@ -24,35 +34,29 @@ void updateKeyboard()
 
 	kb_Scan();
 
-	if (g7 & kb_Down) {
-		move = true;
-		moveDir = DOWN;
-	} else if (g7 & kb_Up) {
-		move = true;
-		moveDir = UP;
+	if (g7 & kb_Down)
+	{
+		paddle->should_move = true;
+		paddle->move_dir = DOWN;
+	}
+	else if (g7 & kb_Up)
+	{
+		paddle->should_move = true;
+		paddle->move_dir = UP;
 	}
 
-	if (g1 & kb_2nd) {
+	if (g1 & kb_2nd)
+	{
 		quit();
 	}
 }
 
-int main(void)
+void quit()
 {
-	point_t *paddle = NULL;
+	gameActive = false;
+	gfx_End();
 
-	os_ClrHome();
+	free(paddle);
 
-	gfx_Begin();
-
-	paddle = calloc(1, sizeof(point_t));
-	initPaddle(paddle);
-
-	do
-	{
-		updateKeyboard();
-		updatePaddle(paddle);
-	} while (gameActive);
-
-	return 0;
+	exit(0);
 }

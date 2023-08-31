@@ -1,0 +1,2 @@
+void updateKeyboard();
+void quit();
