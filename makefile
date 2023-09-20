@@ -5,11 +5,11 @@
 # Set COMPRESSED to "YES" to create a compressed program
 # ----------------------------
 
-NAME        ?= PONG
-COMPRESSED  ?= NO
-ICON        ?= icon.png
-DESCRIPTION ?= "Pong game made by Trevor Reigh"
+NAME        = PONG
+COMPRESSED  = NO
+ICON        = icon.png
+DESCRIPTION = "Pong game made by Trevor Reigh"
 
 # ----------------------------
 
-include $(CEDEV)/meta/makefile.mk
+include $(shell cedev-config --makefile) 
