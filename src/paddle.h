@@ -1,5 +1,10 @@
+#ifndef PADDLE_H
+#define PADDLE_H
+
+#include "main.h"
+
 #define PADDLE_WIDTH 8
-#define PADDLE_LEN 30
+#define PADDLE_LEN 60
 #define INIT_X_LOC 2
 #define INIT_Y_LOC 30
 
@@ -28,3 +33,6 @@ paddle_t;
 paddle_t* initPaddle();
 void movePaddle(paddle_t*);
 void updatePaddle(paddle_t*);
+void drawPaddle(paddle_t*);
+
+#endif
