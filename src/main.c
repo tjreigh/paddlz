@@ -1,5 +1,3 @@
-#include <stdbool.h>
-
 #include <graphx.h>
 #include <tice.h>
 #include <keypadc.h>
@@ -10,9 +8,12 @@
 #include "ball.h"
 #include "collision.h"
 
-bool gameActive = true;
-paddle_t* paddle;
-ball_t* ball;
+static bool gameActive = true;
+static bool secondWasDown = false;
+static paddle_t paddle;
+static ball_t ball;
+static unsigned int score = 0;
+static unsigned int bestScore = 0;
 
 void render(void);
 
@@ -22,68 +23,95 @@ int main(void)
 	gfx_Begin();
 	gfx_SetDrawBuffer();
 
-	paddle = initPaddle();
-	ball = initBall();
-
-	serveBall(ball);
+	initPaddle(&paddle);
+	initBall(&ball);
 
 	do
 	{
 		updateKeyboard();
-		updatePaddle(paddle);
-		updateBall(ball);
-		bool ballPaddleCollision = checkPaddleCollision(ball, paddle);
+		if (!gameActive)
+		{
+			break;
+		}
+
+		updatePaddle(&paddle);
+		if (updateBall(&ball))
+		{
+			score = 0;
+			resetBall(&ball);
+		}
+		else if (checkPaddleCollision(&ball, &paddle))
+		{
+			score++;
+			if (score > bestScore)
+			{
+				bestScore = score;
+			}
+		}
 		render();
 	} while (gameActive);
 
+	gfx_End();
 	return 0;
 }
 
-void updateKeyboard()
+void updateKeyboard(void)
 {
-	kb_key_t g1 = kb_Data[1];
-	kb_key_t g7 = kb_Data[7];
-
 	kb_Scan();
+
+	kb_key_t g1 = kb_Data[1];
+	kb_key_t g6 = kb_Data[6];
+	kb_key_t g7 = kb_Data[7];
 
 	if (g7 & kb_Down)
 	{
-		paddle->should_move = true;
-		paddle->move_dir = DOWN;
+		paddle.should_move = true;
+		paddle.move_dir = DOWN;
 	}
 	else if (g7 & kb_Up)
 	{
-		paddle->should_move = true;
-		paddle->move_dir = UP;
+		paddle.should_move = true;
+		paddle.move_dir = UP;
 	}
 
-	if (g1 & kb_2nd)
+	bool secondIsDown = g1 & kb_2nd;
+	if (secondIsDown && !secondWasDown && !ball.in_play)
+	{
+		serveBall(&ball);
+	}
+	secondWasDown = secondIsDown;
+
+	if (g6 & kb_Clear)
 	{
 		quit();
 	}
 }
 
-void quit()
+void quit(void)
 {
 	gameActive = false;
-	gfx_End();
-
-	free(paddle);
-	free(ball);
-
-	exit(0);
 }
 
 void render(void)
 {
-	// Clear screen (320x240 for TI-84 CE)
 	gfx_SetColor(BG_COLOR);
-	gfx_FillRectangle(0, 0, 320, 240);
+	gfx_FillRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-	// Draw all entities
-	drawPaddle(paddle);
-	drawBall(ball);
+	drawPaddle(&paddle);
+	drawBall(&ball);
 
-	// Display everything
-	gfx_BlitBuffer();
+	gfx_SetTextFGColor(PADDLE_COLOR);
+	gfx_PrintStringXY("SCORE", 120, 8);
+	gfx_SetTextXY(164, 8);
+	gfx_PrintUInt(score, 1);
+	gfx_PrintStringXY("BEST", 215, 8);
+	gfx_SetTextXY(251, 8);
+	gfx_PrintUInt(bestScore, 1);
+
+	if (!ball.in_play)
+	{
+		gfx_PrintStringXY("2nd: serve", 120, 112);
+	}
+
+	gfx_SwapDraw();
 }

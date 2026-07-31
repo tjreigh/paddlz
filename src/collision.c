@@ -10,30 +10,36 @@ bool checkPaddleCollision(ball_t* ball, paddle_t* paddle)
     int ball_y = ball->y >> FIXED_SHIFT;
 
     // Calculate paddle bounds
-    int paddle_left = paddle->pos.x;
     int paddle_right = paddle->pos.x + PADDLE_WIDTH;
     int paddle_top = paddle->pos.y;
     int paddle_bottom = paddle->pos.y + PADDLE_LEN;
 
-    // Check if ball is overlapping with paddle
-    // Ball's left edge should be at or past paddle's right edge
-    bool x_overlap = (ball_x - BALL_SIZE <= paddle_right) && (ball_x + BALL_SIZE >= paddle_left);
+    // Only collide with the paddle's front face while moving toward it.
+    bool x_overlap = ball->vx < 0
+        && ball_x >= paddle_right
+        && ball_x - BALL_RADIUS <= paddle_right;
 
     // Ball's vertical position should overlap with paddle
-    bool y_overlap = (ball_y + BALL_SIZE >= paddle_top) && (ball_y - BALL_SIZE <= paddle_bottom);
+    bool y_overlap = (ball_y + BALL_RADIUS >= paddle_top)
+        && (ball_y - BALL_RADIUS <= paddle_bottom);
 
     // Collision detected if both overlap
     if (x_overlap && y_overlap) {
-        // Make sure ball is moving toward the paddle (vx < 0 means moving left toward paddle)
-        if (ball->vx < 0) {
-            // Reverse horizontal velocity
-            ball->vx = -ball->vx;
+        int paddle_center = paddle_top + PADDLE_LEN / 2;
+        int impact_offset = ball_y - paddle_center;
+        int max_offset = PADDLE_LEN / 2;
 
-            // Push ball out of paddle to prevent sticking
-            ball->x = (paddle_right + BALL_SIZE) << FIXED_SHIFT;
-
-            return true;
+        if (impact_offset < -max_offset) {
+            impact_offset = -max_offset;
+        } else if (impact_offset > max_offset) {
+            impact_offset = max_offset;
         }
+
+        ball->vx = -ball->vx;
+        ball->vy = (impact_offset * BALL_MAX_VERTICAL_SPEED) / max_offset;
+        ball->x = (paddle_right + BALL_RADIUS) << FIXED_SHIFT;
+
+        return true;
     }
 
     return false;

@@ -1,30 +1,19 @@
-#include <stdlib.h>
 #include <stdbool.h>
 
 #include <graphx.h>
-#include <tice.h>
-#include <debug.h>
 
 #include "ball.h"
 #include "draw.h"
 
-ball_t *initBall()
+void initBall(ball_t *ball)
 {
-    dbg_printf("init ball\n");
-    ball_t *ball = calloc(1, sizeof(ball_t));
-    ball->x = 120 << FIXED_SHIFT;
-    ball->y = 120 << FIXED_SHIFT;
-    ball->vx = BALL_INIT_SPEED;
-    ball->vy = BALL_INIT_SPEED;
-    ball->in_play = false;
-
-    return ball;
+    resetBall(ball);
 }
 
-void updateBall(ball_t* ball)
+bool updateBall(ball_t* ball)
 {
     if (!ball->in_play) {
-        return;
+        return false;
     }
 
     // Update position
@@ -36,32 +25,34 @@ void updateBall(ball_t* ball)
     int screen_y = ball->y >> FIXED_SHIFT;
 
     // Bounce off top wall
-    if (screen_y <= BALL_SIZE) {
-        ball->y = BALL_SIZE << FIXED_SHIFT;
-        ball->vy = -ball->vy;
-        if (ball->vy < 0) ball->vy = -ball->vy;  // Ensure moving down
+    if (screen_y <= BALL_RADIUS) {
+        ball->y = BALL_RADIUS << FIXED_SHIFT;
+        if (ball->vy < 0) {
+            ball->vy = -ball->vy;
+        }
     }
 
     // Bounce off bottom wall (240 is screen height)
-    if (screen_y >= 240 - BALL_SIZE) {
-        ball->y = (240 - BALL_SIZE) << FIXED_SHIFT;
-        ball->vy = -ball->vy;
-        if (ball->vy > 0) ball->vy = -ball->vy;  // Ensure moving up
+    if (screen_y >= SCREEN_HEIGHT - BALL_RADIUS) {
+        ball->y = (SCREEN_HEIGHT - BALL_RADIUS) << FIXED_SHIFT;
+        if (ball->vy > 0) {
+            ball->vy = -ball->vy;
+        }
     }
 
-    // Bounce off left wall
-    if (screen_x <= BALL_SIZE) {
-        ball->x = BALL_SIZE << FIXED_SHIFT;
-        ball->vx = -ball->vx;
-        if (ball->vx < 0) ball->vx = -ball->vx;  // Ensure moving right
+    // Leaving the left side ends the rally.
+    if (screen_x + BALL_RADIUS < 0) {
+        return true;
     }
 
-    // Bounce off right wall (320 is screen width)
-    if (screen_x >= 320 - BALL_SIZE) {
-        ball->x = (320 - BALL_SIZE) << FIXED_SHIFT;
-        ball->vx = -ball->vx;
-        if (ball->vx > 0) ball->vx = -ball->vx;  // Ensure moving left
+    if (screen_x >= SCREEN_WIDTH - BALL_RADIUS) {
+        ball->x = (SCREEN_WIDTH - BALL_RADIUS) << FIXED_SHIFT;
+        if (ball->vx > 0) {
+            ball->vx = -ball->vx;
+        }
     }
+
+    return false;
 }
 
 void drawBall(ball_t* ball)
@@ -70,13 +61,13 @@ void drawBall(ball_t* ball)
     int screen_y = ball->y >> FIXED_SHIFT;
 
     gfx_SetColor(BALL_COLOR);
-    gfx_FillCircle(screen_x, screen_y, BALL_SIZE);
+    gfx_FillCircle(screen_x, screen_y, BALL_RADIUS);
 }
 
 void resetBall(ball_t* ball)
 {
-    ball->x = 120 << FIXED_SHIFT;
-    ball->y = 120 << FIXED_SHIFT;
+    ball->x = (SCREEN_WIDTH / 2) << FIXED_SHIFT;
+    ball->y = (SCREEN_HEIGHT / 2) << FIXED_SHIFT;
     ball->vx = BALL_INIT_SPEED;
     ball->vy = BALL_INIT_SPEED;
     ball->in_play = false;

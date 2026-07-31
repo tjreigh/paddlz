@@ -1,42 +1,32 @@
-#include <stdlib.h>
-#include <stdbool.h>
-
 #include <graphx.h>
-#include <tice.h>
-#include <debug.h>
 
 #include "paddle.h"
 #include "draw.h"
 
-paddle_t *initPaddle()
+void initPaddle(paddle_t *paddle)
 {
-	dbg_printf("init\n");
-	paddle_t *paddle = calloc(1, sizeof(paddle_t));
 	point_t init_pos = {INIT_X_LOC, INIT_Y_LOC};
 	paddle->pos = init_pos;
-	paddle->is_colliding = false;
-
-	return paddle;
+	paddle->move_dir = UP;
+	paddle->should_move = false;
 }
 
 void movePaddle(paddle_t *paddle)
 {
-	int amnt = (paddle->move_dir == 0) ? -2 : 2;
+	int amnt = (paddle->move_dir == UP) ? -PADDLE_SPEED : PADDLE_SPEED;
 	int curr_pos = paddle->pos.y;
 	int new_pos = curr_pos + amnt;
 
-	dbg_sprintf(dbgout, "current paddle y pos is: %d\n new position would be: %d\n", curr_pos, new_pos);
+	if (new_pos < 0)
+	{
+		new_pos = 0;
+	}
+	else if (new_pos + PADDLE_LEN > SCREEN_HEIGHT)
+	{
+		new_pos = SCREEN_HEIGHT - PADDLE_LEN;
+	}
 
-	// Check boundaries (paddle length is PADDLE_LEN)
-	if (new_pos > 0 && new_pos + PADDLE_LEN < 240)
-	{
-		dbg_sprintf(dbgout, "moving paddle to y pos: %d\n", new_pos);
-		paddle->pos.y = new_pos;
-	}
-	else
-	{
-		paddle->should_move = false;
-	}
+	paddle->pos.y = new_pos;
 }
 
 void updatePaddle(paddle_t *paddle)
