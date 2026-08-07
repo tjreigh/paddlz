@@ -6,6 +6,6 @@
 #include "ball.h"
 #include "paddle.h"
 
-bool checkPaddleCollision(ball_t* ball, paddle_t* paddle);
+bool checkPaddleCollision(ball_t* ball, const paddle_t* paddle);
 
 #endif

@@ -10,10 +10,10 @@ void initBall(ball_t *ball)
     resetBall(ball);
 }
 
-bool updateBall(ball_t* ball)
+ball_update_t updateBall(ball_t* ball, ball_boundary_t right_boundary)
 {
     if (!ball->in_play) {
-        return false;
+        return BALL_IN_PLAY;
     }
 
     // Update position
@@ -25,16 +25,15 @@ bool updateBall(ball_t* ball)
     int screen_y = ball->y >> FIXED_SHIFT;
 
     // Bounce off top wall
-    if (screen_y <= BALL_RADIUS) {
-        ball->y = BALL_RADIUS << FIXED_SHIFT;
+    if (screen_y <= PLAYFIELD_TOP + BALL_RADIUS) {
+        ball->y = (PLAYFIELD_TOP + BALL_RADIUS) << FIXED_SHIFT;
         if (ball->vy < 0) {
             ball->vy = -ball->vy;
         }
     }
 
-    // Bounce off bottom wall (240 is screen height)
-    if (screen_y >= SCREEN_HEIGHT - BALL_RADIUS) {
-        ball->y = (SCREEN_HEIGHT - BALL_RADIUS) << FIXED_SHIFT;
+    if (screen_y >= PLAYFIELD_BOTTOM - BALL_RADIUS) {
+        ball->y = (PLAYFIELD_BOTTOM - BALL_RADIUS) << FIXED_SHIFT;
         if (ball->vy > 0) {
             ball->vy = -ball->vy;
         }
@@ -42,17 +41,20 @@ bool updateBall(ball_t* ball)
 
     // Leaving the left side ends the rally.
     if (screen_x + BALL_RADIUS < 0) {
-        return true;
+        return BALL_OUT_LEFT;
     }
 
-    if (screen_x >= SCREEN_WIDTH - BALL_RADIUS) {
+    if (right_boundary == BALL_WALL_ON_RIGHT
+        && screen_x >= SCREEN_WIDTH - BALL_RADIUS) {
         ball->x = (SCREEN_WIDTH - BALL_RADIUS) << FIXED_SHIFT;
         if (ball->vx > 0) {
             ball->vx = -ball->vx;
         }
+    } else if (screen_x - BALL_RADIUS > SCREEN_WIDTH) {
+        return BALL_OUT_RIGHT;
     }
 
-    return false;
+    return BALL_IN_PLAY;
 }
 
 void drawBall(ball_t* ball)
@@ -73,7 +75,8 @@ void resetBall(ball_t* ball)
     ball->in_play = false;
 }
 
-void serveBall(ball_t* ball)
+void serveBall(ball_t* ball, ball_direction_t direction)
 {
+    ball->vx = direction * BALL_INIT_SPEED;
     ball->in_play = true;
 }

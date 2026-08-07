@@ -3,38 +3,44 @@
 #include "paddle.h"
 #include "draw.h"
 
-void initPaddle(paddle_t *paddle)
+void initPaddle(paddle_t *paddle, paddle_side_t side)
 {
-	point_t init_pos = {INIT_X_LOC, INIT_Y_LOC};
+	int x = side == PADDLE_LEFT
+		? PADDLE_MARGIN
+		: SCREEN_WIDTH - PADDLE_MARGIN - PADDLE_WIDTH;
+	point_t init_pos = {x, PADDLE_INIT_Y};
 	paddle->pos = init_pos;
-	paddle->move_dir = UP;
-	paddle->should_move = false;
+	paddle->side = side;
 }
 
-void movePaddle(paddle_t *paddle)
+void movePaddle(paddle_t *paddle, dir_t direction, int amount)
 {
-	int amnt = (paddle->move_dir == UP) ? -PADDLE_SPEED : PADDLE_SPEED;
-	int curr_pos = paddle->pos.y;
-	int new_pos = curr_pos + amnt;
+	int movement = direction == UP ? -amount : amount;
+	int new_pos = paddle->pos.y + movement;
 
-	if (new_pos < 0)
+	if (new_pos < PLAYFIELD_TOP)
 	{
-		new_pos = 0;
+		new_pos = PLAYFIELD_TOP;
 	}
-	else if (new_pos + PADDLE_LEN > SCREEN_HEIGHT)
+	else if (new_pos + PADDLE_LEN > PLAYFIELD_BOTTOM)
 	{
-		new_pos = SCREEN_HEIGHT - PADDLE_LEN;
+		new_pos = PLAYFIELD_BOTTOM - PADDLE_LEN;
 	}
 
 	paddle->pos.y = new_pos;
 }
 
-void updatePaddle(paddle_t *paddle)
+void movePaddleToward(paddle_t *paddle, int target_y, int amount)
 {
-	if (paddle->should_move)
+	int paddle_center = paddle->pos.y + PADDLE_LEN / 2;
+
+	if (target_y < paddle_center - PADDLE_TRACKING_DEAD_ZONE)
 	{
-		movePaddle(paddle);
-		paddle->should_move = false;
+		movePaddle(paddle, UP, amount);
+	}
+	else if (target_y > paddle_center + PADDLE_TRACKING_DEAD_ZONE)
+	{
+		movePaddle(paddle, DOWN, amount);
 	}
 }
 
