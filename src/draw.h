@@ -1,2 +1,14 @@
+#ifndef DRAW_H
+#define DRAW_H
+
+#define SCREEN_WIDTH 320
+#define SCREEN_HEIGHT 240
+#define PLAYFIELD_TOP 24
+#define PLAYFIELD_BOTTOM 216
+
 #define BG_COLOR 255
 #define PADDLE_COLOR 0
+#define BALL_COLOR 160
+#define MENU_HIGHLIGHT_COLOR 28
+
+#endif
