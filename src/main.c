@@ -503,7 +503,7 @@ static void renderBattle(void)
 		{
 			drawPaddle(&combatant->paddle);
 		}
-		else if (combatant->flip_timer > 0)
+		else if (!battle.over && combatant->flip_timer > 0)
 		{
 			flipper_wedge_t wedge = battleFlipperWedge((paddle_side_t)i, combatant->flip_tangent);
 			gfx_SetColor(BALL_COLOR);
