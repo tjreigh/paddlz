@@ -6,7 +6,7 @@
 #define FIXED_SHIFT 8
 #define BALL_RADIUS 8
 #define BALL_INIT_SPEED (2 << FIXED_SHIFT)
-#define BALL_MAX_VERTICAL_SPEED (3 << FIXED_SHIFT)
+#define BALL_MAX_DEFLECT_SPEED (3 << FIXED_SHIFT)
 
 typedef enum ball_direction_t
 {
@@ -37,6 +37,7 @@ typedef struct ball_t
 } ball_t;
 
 void initBall(ball_t* ball);
+void advanceBall(ball_t* ball);
 ball_update_t updateBall(ball_t* ball, ball_boundary_t right_boundary);
 void drawBall(ball_t* ball);
 void resetBall(ball_t* ball);

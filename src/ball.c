@@ -10,15 +10,19 @@ void initBall(ball_t *ball)
     resetBall(ball);
 }
 
+void advanceBall(ball_t* ball)
+{
+    ball->x += ball->vx;
+    ball->y += ball->vy;
+}
+
 ball_update_t updateBall(ball_t* ball, ball_boundary_t right_boundary)
 {
     if (!ball->in_play) {
         return BALL_IN_PLAY;
     }
 
-    // Update position
-    ball->x += ball->vx;
-    ball->y += ball->vy;
+    advanceBall(ball);
 
     // Convert to screen coordinates for collision checking
     int screen_x = ball->x >> FIXED_SHIFT;

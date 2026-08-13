@@ -4,6 +4,7 @@
 #include <tice.h>
 
 #include "ball.h"
+#include "battle.h"
 #include "collision.h"
 #include "cpu.h"
 #include "draw.h"
@@ -22,7 +23,8 @@ typedef enum screen_t
 typedef enum game_mode_t
 {
 	CPU_MODE,
-	HIGH_SCORE_MODE
+	HIGH_SCORE_MODE,
+	BATTLE_MODE
 } game_mode_t;
 
 static bool gameActive = true;
@@ -37,11 +39,14 @@ static game_mode_t selectedMode = CPU_MODE;
 static game_mode_t activeMode = CPU_MODE;
 static cpu_difficulty_t selectedDifficulty = CPU_NORMAL;
 static cpu_difficulty_t activeDifficulty = CPU_NORMAL;
+static int selectedBattleCount = BATTLE_MIN_COMBATANTS;
+static int activeBattleCount = BATTLE_MIN_COMBATANTS;
 static paddle_t playerPaddle;
 static paddle_t cpuPaddle;
 static ball_t ball;
 static match_t match;
 static rally_t rally;
+static battle_t battle;
 static unsigned int savedHighScore = 0;
 
 static void startSelectedMode(void);
@@ -49,9 +54,13 @@ static void updateGame(void);
 static void render(void);
 static void renderMenu(void);
 static void renderModeOption(int y, const char* title, const char* description, bool selected);
+static const char* battleCombatantLabel(int count);
 static void renderGame(void);
+static void renderBattle(void);
+static void renderBattleStatus(int index, int y);
 static void renderServeOverlay(void);
 static void renderMatchOverOverlay(void);
+static void renderBattleOverOverlay(void);
 static void persistHighScoreIfNeeded(void);
 static void beforeGarbageCollection(void);
 static void afterGarbageCollection(void);
@@ -103,11 +112,17 @@ void updateKeyboard(void)
 
 	if (currentScreen == MENU_SCREEN)
 	{
-		if ((upIsDown && !upWasDown) || (downIsDown && !downWasDown))
+		if (upIsDown && !upWasDown)
 		{
 			selectedMode = selectedMode == CPU_MODE
-				? HIGH_SCORE_MODE
-				: CPU_MODE;
+				? BATTLE_MODE
+				: (game_mode_t)(selectedMode - 1);
+		}
+		else if (downIsDown && !downWasDown)
+		{
+			selectedMode = selectedMode == BATTLE_MODE
+				? CPU_MODE
+				: (game_mode_t)(selectedMode + 1);
 		}
 
 		if (selectedMode == CPU_MODE && leftIsDown && !leftWasDown)
@@ -122,6 +137,18 @@ void updateKeyboard(void)
 				? CPU_EASY
 				: selectedDifficulty + 1;
 		}
+		else if (selectedMode == BATTLE_MODE && leftIsDown && !leftWasDown)
+		{
+			selectedBattleCount = selectedBattleCount == BATTLE_MIN_COMBATANTS
+				? BATTLE_MAX_COMBATANTS
+				: selectedBattleCount - 1;
+		}
+		else if (selectedMode == BATTLE_MODE && rightIsDown && !rightWasDown)
+		{
+			selectedBattleCount = selectedBattleCount == BATTLE_MAX_COMBATANTS
+				? BATTLE_MIN_COMBATANTS
+				: selectedBattleCount + 1;
+		}
 
 		if (secondIsDown && !secondWasDown)
 		{
@@ -134,28 +161,41 @@ void updateKeyboard(void)
 	}
 	else
 	{
+		paddle_t* activePlayerPaddle = activeMode == BATTLE_MODE
+			? &battle.combatants[PADDLE_LEFT].paddle
+			: &playerPaddle;
+
 		if (downIsDown)
 		{
-			movePaddle(&playerPaddle, DOWN, PLAYER_PADDLE_SPEED);
+			movePaddle(activePlayerPaddle, DOWN, PLAYER_PADDLE_SPEED);
 		}
 		else if (upIsDown)
 		{
-			movePaddle(&playerPaddle, UP, PLAYER_PADDLE_SPEED);
+			movePaddle(activePlayerPaddle, UP, PLAYER_PADDLE_SPEED);
 		}
 
-		if (secondIsDown && !secondWasDown && !ball.in_play)
+		if (secondIsDown && !secondWasDown)
 		{
-			if (activeMode == CPU_MODE && match.over)
+			if (activeMode == BATTLE_MODE && battle.over)
 			{
-				initMatch(&match);
-				initPaddle(&playerPaddle, PADDLE_LEFT);
-				initPaddle(&cpuPaddle, PADDLE_RIGHT);
+				initBattle(&battle, activeBattleCount, activeDifficulty);
+				resetBall(&ball);
+				serveBall(&ball, BALL_RIGHT);
 			}
+			else if (!ball.in_play)
+			{
+				if (activeMode == CPU_MODE && match.over)
+				{
+					initMatch(&match);
+					initPaddle(&playerPaddle, PADDLE_LEFT);
+					initPaddle(&cpuPaddle, PADDLE_RIGHT);
+				}
 
-			ball_direction_t direction = activeMode == CPU_MODE
-				? match.next_serve_direction
-				: BALL_RIGHT;
-			serveBall(&ball, direction);
+				ball_direction_t direction = activeMode == CPU_MODE
+					? match.next_serve_direction
+					: BALL_RIGHT;
+				serveBall(&ball, direction);
+			}
 		}
 
 		if (clearIsDown && !clearWasDown)
@@ -183,6 +223,7 @@ static void startSelectedMode(void)
 {
 	activeMode = selectedMode;
 	activeDifficulty = selectedDifficulty;
+	activeBattleCount = selectedBattleCount;
 	currentScreen = GAME_SCREEN;
 	initPaddle(&playerPaddle, PADDLE_LEFT);
 	initPaddle(&cpuPaddle, PADDLE_RIGHT);
@@ -192,14 +233,25 @@ static void startSelectedMode(void)
 	{
 		initMatch(&match);
 	}
-	else
+	else if (activeMode == HIGH_SCORE_MODE)
 	{
 		resetRallyScore(&rally);
+	}
+	else
+	{
+		initBattle(&battle, activeBattleCount, activeDifficulty);
+		serveBall(&ball, BALL_RIGHT);
 	}
 }
 
 static void updateGame(void)
 {
+	if (activeMode == BATTLE_MODE)
+	{
+		updateBattle(&battle, &ball);
+		return;
+	}
+
 	if (activeMode == CPU_MODE && match.over)
 	{
 		return;
@@ -258,15 +310,29 @@ static void render(void)
 	gfx_SwapDraw();
 }
 
+static const char* battleCombatantLabel(int count)
+{
+	switch (count)
+	{
+		case 2:
+			return "2 COMBATANTS";
+		case 3:
+			return "3 COMBATANTS";
+		case 4:
+		default:
+			return "4 COMBATANTS";
+	}
+}
+
 static void renderMenu(void)
 {
 	gfx_SetTextScale(2, 2);
-	gfx_PrintStringXY("Paddlz", 112, 34);
+	gfx_PrintStringXY("Paddlz", 112, 24);
 	gfx_SetTextScale(1, 1);
-	gfx_PrintStringXY("CHOOSE A MODE", 108, 72);
+	gfx_PrintStringXY("CHOOSE A MODE", 108, 50);
 
 	renderModeOption(
-		92,
+		68,
 		"CPU MATCH",
 		selectedMode == CPU_MODE
 			? cpuDifficultyName(selectedDifficulty)
@@ -275,24 +341,41 @@ static void renderMenu(void)
 	);
 	if (selectedMode == CPU_MODE)
 	{
-		gfx_PrintStringXY("<", 72, 114);
-		gfx_PrintStringXY(">", 144, 114);
+		gfx_PrintStringXY("<", 72, 90);
+		gfx_PrintStringXY(">", 144, 90);
 	}
 	renderModeOption(
-		140,
+		112,
 		"HIGH SCORE",
 		"Keep the rally alive",
 		selectedMode == HIGH_SCORE_MODE
 	);
+	renderModeOption(
+		156,
+		"BATTLE ROYALE",
+		selectedMode == BATTLE_MODE
+			? battleCombatantLabel(selectedBattleCount)
+			: "4-wall elimination",
+		selectedMode == BATTLE_MODE
+	);
+	if (selectedMode == BATTLE_MODE)
+	{
+		gfx_PrintStringXY("<", 72, 178);
+		gfx_PrintStringXY(">", 144, 178);
+	}
 
-	gfx_PrintStringXY("UP/DOWN: MODE", 104, 194);
+	gfx_PrintStringXY("UP/DOWN: MODE", 104, 202);
 	if (selectedMode == CPU_MODE)
 	{
-		gfx_PrintStringXY("LEFT/RIGHT: CPU LEVEL", 76, 210);
+		gfx_PrintStringXY("LEFT/RIGHT: CPU LEVEL", 76, 214);
+	}
+	else if (selectedMode == BATTLE_MODE)
+	{
+		gfx_PrintStringXY("LEFT/RIGHT: COMBATANTS", 72, 214);
 	}
 	else
 	{
-		gfx_PrintStringXY("BEST SCORE IS SAVED", 84, 210);
+		gfx_PrintStringXY("BEST SCORE IS SAVED", 84, 214);
 	}
 	gfx_PrintStringXY("2nd: SELECT  Clear: QUIT", 56, 226);
 }
@@ -319,6 +402,12 @@ static void renderModeOption(
 
 static void renderGame(void)
 {
+	if (activeMode == BATTLE_MODE)
+	{
+		renderBattle();
+		return;
+	}
+
 	gfx_SetColor(PADDLE_COLOR);
 	gfx_HorizLine(0, PLAYFIELD_TOP - 1, SCREEN_WIDTH);
 	gfx_HorizLine(0, PLAYFIELD_BOTTOM, SCREEN_WIDTH);
@@ -388,6 +477,68 @@ static void renderServeOverlay(void)
 static void renderMatchOverOverlay(void)
 {
 	const char *winner = match.player_score > match.cpu_score
+		? "YOU WIN"
+		: "CPU WINS";
+
+	gfx_SetColor(BG_COLOR);
+	gfx_FillRectangle(87, 88, 146, 64);
+	gfx_SetColor(PADDLE_COLOR);
+	gfx_Rectangle(87, 88, 146, 64);
+	gfx_PrintStringXY(winner, 128, 104);
+	gfx_PrintStringXY("2nd: NEW MATCH", 100, 126);
+}
+
+static void renderBattle(void)
+{
+	gfx_SetColor(PADDLE_COLOR);
+	gfx_Rectangle(BATTLE_LEFT, BATTLE_TOP, BATTLE_ARENA_SIZE, BATTLE_ARENA_SIZE);
+	gfx_PrintStringXY("BATTLE ROYALE", 8, 8);
+	gfx_PrintStringXY("Clear: MENU", 216, 224);
+
+	for (int i = 0; i < BATTLE_MAX_COMBATANTS; i++)
+	{
+		combatant_t* combatant = &battle.combatants[i];
+
+		if (combatant->alive)
+		{
+			drawPaddle(&combatant->paddle);
+		}
+		else if (combatant->flip_timer > 0)
+		{
+			flipper_wedge_t wedge = battleFlipperWedge((paddle_side_t)i, combatant->flip_tangent);
+			gfx_SetColor(BALL_COLOR);
+			gfx_SetClipRegion(BATTLE_LEFT, BATTLE_TOP, BATTLE_RIGHT, BATTLE_BOTTOM);
+			gfx_FillTriangle(wedge.pivot_x, wedge.pivot_y, wedge.tip_a_x, wedge.tip_a_y, wedge.tip_b_x, wedge.tip_b_y);
+			gfx_SetClipRegion(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		}
+
+		renderBattleStatus(i, BATTLE_TOP + i * (BATTLE_ARENA_SIZE / BATTLE_MAX_COMBATANTS));
+	}
+
+	drawBall(&ball);
+
+	if (battle.over)
+	{
+		renderBattleOverOverlay();
+	}
+}
+
+static void renderBattleStatus(int index, int y)
+{
+	static const char* wallLabels[BATTLE_MAX_COMBATANTS] = { "LEFT", "RIGHT", "TOP", "BOT" };
+	const combatant_t* combatant = &battle.combatants[index];
+	const char* status = combatant->controller == COMBATANT_PLAYER && combatant->alive
+		? "YOU"
+		: combatant->alive ? "CPU" : "OUT";
+
+	gfx_SetColor(PADDLE_COLOR);
+	gfx_PrintStringXY(wallLabels[index], BATTLE_RIGHT + 4, y);
+	gfx_PrintStringXY(status, BATTLE_RIGHT + 4, y + 10);
+}
+
+static void renderBattleOverOverlay(void)
+{
+	const char *winner = battleWinner(&battle) == PADDLE_LEFT
 		? "YOU WIN"
 		: "CPU WINS";
 
