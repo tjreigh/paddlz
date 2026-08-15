@@ -142,63 +142,115 @@ paddle_side_t battleWinner(const battle_t* battle)
     return PADDLE_LEFT;
 }
 
-flipper_wedge_t battleFlipperWedge(paddle_side_t side, int tangent)
+static int flipperTangentCenter(paddle_side_t side)
 {
-    bool vertical = paddleIsVertical(side);
-    int half = FLIPPER_LEN / 2;
-    int min_tangent = (vertical ? PLAYFIELD_TOP : BATTLE_LEFT) + half;
-    int max_tangent = (vertical ? PLAYFIELD_BOTTOM : BATTLE_RIGHT) - half;
-
-    if (tangent < min_tangent) {
-        tangent = min_tangent;
-    } else if (tangent > max_tangent) {
-        tangent = max_tangent;
-    }
-
-    /* The pivot is fixed at the wall's own midpoint, off-board - the tip
-     * swings out to wherever the ball actually landed, so a hit away from
-     * the wall's center reads as an angled flipper, not a straight poke. */
-    int pivot_tangent = vertical
+    return paddleIsVertical(side)
         ? (PLAYFIELD_TOP + PLAYFIELD_BOTTOM) / 2
         : (BATTLE_LEFT + BATTLE_RIGHT) / 2;
+}
 
-    flipper_wedge_t wedge;
+static int flipperTangentOffset(paddle_side_t side, int tangent)
+{
+    int offset = tangent - flipperTangentCenter(side);
 
+    if (offset > FLIPPER_MAX_SWING_OFFSET) {
+        return FLIPPER_MAX_SWING_OFFSET;
+    }
+    if (offset < -FLIPPER_MAX_SWING_OFFSET) {
+        return -FLIPPER_MAX_SWING_OFFSET;
+    }
+
+    return offset;
+}
+
+point_t battleFlipperHinge(paddle_side_t side, int tangent)
+{
+    int offset = flipperTangentOffset(side, tangent);
+    int tip_tangent_offset = FLIPPER_MAX_TIP_TANGENT_OFFSET * offset
+        / FLIPPER_MAX_SWING_OFFSET;
+    int hinge_tangent = tangent - tip_tangent_offset;
+    point_t hinge;
+
+    /* At the fully struck angle, the blade tip is tip_tangent_offset pixels
+     * farther from wall center than the pivot. Pulling the pivot back by the
+     * same amount puts that tip at the recorded impact tangent. */
     switch (side) {
         case PADDLE_LEFT:
-            wedge.pivot_x = BATTLE_LEFT - FLIPPER_PIVOT_SETBACK;
-            wedge.pivot_y = pivot_tangent;
-            wedge.tip_a_x = BATTLE_LEFT + FLIPPER_REACH;
-            wedge.tip_a_y = tangent - half;
-            wedge.tip_b_x = BATTLE_LEFT + FLIPPER_REACH;
-            wedge.tip_b_y = tangent + half;
+            hinge.x = BATTLE_LEFT + FLIPPER_HINGE_INSET;
+            hinge.y = hinge_tangent;
             break;
         case PADDLE_RIGHT:
-            wedge.pivot_x = BATTLE_RIGHT + FLIPPER_PIVOT_SETBACK;
-            wedge.pivot_y = pivot_tangent;
-            wedge.tip_a_x = BATTLE_RIGHT - FLIPPER_REACH;
-            wedge.tip_a_y = tangent - half;
-            wedge.tip_b_x = BATTLE_RIGHT - FLIPPER_REACH;
-            wedge.tip_b_y = tangent + half;
+            hinge.x = BATTLE_RIGHT - FLIPPER_HINGE_INSET;
+            hinge.y = hinge_tangent;
             break;
         case PADDLE_TOP:
-            wedge.pivot_x = pivot_tangent;
-            wedge.pivot_y = BATTLE_TOP - FLIPPER_PIVOT_SETBACK;
-            wedge.tip_a_x = tangent - half;
-            wedge.tip_a_y = BATTLE_TOP + FLIPPER_REACH;
-            wedge.tip_b_x = tangent + half;
-            wedge.tip_b_y = BATTLE_TOP + FLIPPER_REACH;
+            hinge.x = hinge_tangent;
+            hinge.y = BATTLE_TOP + FLIPPER_HINGE_INSET;
             break;
         case PADDLE_BOTTOM:
         default:
-            wedge.pivot_x = pivot_tangent;
-            wedge.pivot_y = BATTLE_BOTTOM + FLIPPER_PIVOT_SETBACK;
-            wedge.tip_a_x = tangent - half;
-            wedge.tip_a_y = BATTLE_BOTTOM - FLIPPER_REACH;
-            wedge.tip_b_x = tangent + half;
-            wedge.tip_b_y = BATTLE_BOTTOM - FLIPPER_REACH;
+            hinge.x = hinge_tangent;
+            hinge.y = BATTLE_BOTTOM - FLIPPER_HINGE_INSET;
             break;
     }
 
-    return wedge;
+    return hinge;
+}
+
+/* Rest orientation of the sprite art (blade pointing toward row 0, "up")
+ * mapped to a 256-step angle, clockwise from up, per wall - each wall's
+ * base angle points its blade away from the wall, into the arena. */
+static int flipperRestAngle(paddle_side_t side)
+{
+    switch (side) {
+        case PADDLE_LEFT:
+            return 64;
+        case PADDLE_RIGHT:
+            return 192;
+        case PADDLE_TOP:
+            return 128;
+        case PADDLE_BOTTOM:
+        default:
+            return 0;
+    }
+}
+
+/* Sign of the angle delta that swings the tip toward increasing tangent
+ * (larger y for vertical walls, larger x for horizontal walls), given
+ * each wall's rest angle above. */
+static int flipperSwingSign(paddle_side_t side)
+{
+    switch (side) {
+        case PADDLE_LEFT:
+        case PADDLE_BOTTOM:
+            return 1;
+        case PADDLE_RIGHT:
+        case PADDLE_TOP:
+        default:
+            return -1;
+    }
+}
+
+int battleFlipperAngle(paddle_side_t side, int tangent, int flip_timer)
+{
+    if (flip_timer > FLIPPER_FLASH_FRAMES) {
+        flip_timer = FLIPPER_FLASH_FRAMES;
+    } else if (flip_timer < 0) {
+        flip_timer = 0;
+    }
+
+    int offset = flipperTangentOffset(side, tangent);
+
+    /* flip_timer == FLIPPER_FLASH_FRAMES right when the ball lands - swing
+     * starts fully struck (aimed at the real contact point) and eases back
+     * to the wall's rest angle as the timer counts down to 0. */
+    int swing = flipperSwingSign(side) * FLIPPER_MAX_SWING_ANGLE * offset
+        / FLIPPER_MAX_SWING_OFFSET * flip_timer / FLIPPER_FLASH_FRAMES;
+
+    int angle = (flipperRestAngle(side) + swing) % 256;
+    if (angle < 0) {
+        angle += 256;
+    }
+
+    return angle;
 }

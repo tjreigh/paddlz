@@ -9,10 +9,13 @@
 
 #define BATTLE_MIN_COMBATANTS 2
 #define BATTLE_MAX_COMBATANTS 4
-#define FLIPPER_FLASH_FRAMES 6
-#define FLIPPER_LEN 28
-#define FLIPPER_PIVOT_SETBACK 10
-#define FLIPPER_REACH 18
+#define FLIPPER_FLASH_FRAMES 8
+#define FLIPPER_HINGE_INSET 6
+#define FLIPPER_MAX_SWING_ANGLE 26
+#define FLIPPER_MAX_SWING_OFFSET 70
+/* The blade's contact point is about 10 px from the hinge. At the maximum
+ * 26/256-turn swing, that puts it 6 px away along the wall's tangent. */
+#define FLIPPER_MAX_TIP_TANGENT_OFFSET 6
 
 typedef enum combatant_controller_t
 {
@@ -39,22 +42,14 @@ typedef struct battle_t
     bool over;
 } battle_t;
 
-/* A flipper is drawn as a wedge from a fixed off-board pivot to a wide
- * contact edge at the point where the ball was actually hit - the pivot
- * end is meant to be clipped away by the arena boundary when drawn. */
-typedef struct flipper_wedge_t
-{
-    int pivot_x;
-    int pivot_y;
-    int tip_a_x;
-    int tip_a_y;
-    int tip_b_x;
-    int tip_b_y;
-} flipper_wedge_t;
-
 void initBattle(battle_t* battle, int combatant_count, cpu_difficulty_t difficulty);
 void updateBattle(battle_t* battle, ball_t* ball);
 paddle_side_t battleWinner(const battle_t* battle);
-flipper_wedge_t battleFlipperWedge(paddle_side_t side, int tangent);
+
+/* A flipper is positioned so its outer contact point, rather than its hinge,
+ * lines up with the recorded ball impact. The hinge stays fixed for the
+ * animation while the angle eases back to rest via flip_timer. */
+point_t battleFlipperHinge(paddle_side_t side, int tangent);
+int battleFlipperAngle(paddle_side_t side, int tangent, int flip_timer);
 
 #endif

@@ -574,40 +574,93 @@ static void test_battle_dead_wall_flat_bounce(void)
     assert(!battle.over);
 }
 
-static void test_battle_flipper_wedge_geometry(void)
+static void test_battle_flipper_hinge(void)
 {
-    flipper_wedge_t right_wedge = battleFlipperWedge(PADDLE_RIGHT, 180);
-    assert(right_wedge.pivot_x > BATTLE_RIGHT);
-    assert(right_wedge.pivot_y == (PLAYFIELD_TOP + PLAYFIELD_BOTTOM) / 2);
-    assert(right_wedge.tip_a_x == BATTLE_RIGHT - FLIPPER_REACH);
-    assert(right_wedge.tip_b_x == BATTLE_RIGHT - FLIPPER_REACH);
-    /* the tip sits well inside the arena, not on the boundary line itself -
-     * a clip-region xmax is exclusive, so a tip drawn exactly on the wall
-     * would have no visible area once clipped */
-    assert(right_wedge.tip_a_x < BATTLE_RIGHT);
-    assert(right_wedge.tip_a_y == 180 - FLIPPER_LEN / 2);
-    assert(right_wedge.tip_b_y == 180 + FLIPPER_LEN / 2);
-    /* the tip sits away from the pivot's tangent coordinate - that offset
-     * is what makes a hit off-center read as an angled flipper */
-    assert(right_wedge.tip_a_y != right_wedge.pivot_y);
+    int pivot_v = (PLAYFIELD_TOP + PLAYFIELD_BOTTOM) / 2;
+    int pivot_h = (BATTLE_LEFT + BATTLE_RIGHT) / 2;
 
-    flipper_wedge_t left_wedge = battleFlipperWedge(PADDLE_LEFT, 150);
-    assert(left_wedge.pivot_x < BATTLE_LEFT);
-    assert(left_wedge.tip_a_x == BATTLE_LEFT + FLIPPER_REACH);
-    assert(left_wedge.tip_b_x == BATTLE_LEFT + FLIPPER_REACH);
+    point_t left = battleFlipperHinge(PADDLE_LEFT, pivot_v);
+    assert(left.x == BATTLE_LEFT + FLIPPER_HINGE_INSET);
+    assert(left.y == pivot_v);
 
-    flipper_wedge_t top_wedge = battleFlipperWedge(PADDLE_TOP, 200);
-    assert(top_wedge.pivot_y < BATTLE_TOP);
-    assert(top_wedge.tip_a_y == BATTLE_TOP + FLIPPER_REACH);
-    assert(top_wedge.tip_b_y == BATTLE_TOP + FLIPPER_REACH);
+    point_t right = battleFlipperHinge(PADDLE_RIGHT, pivot_v);
+    assert(right.x == BATTLE_RIGHT - FLIPPER_HINGE_INSET);
+    assert(right.y == pivot_v);
 
-    flipper_wedge_t bottom_wedge = battleFlipperWedge(PADDLE_BOTTOM, 200);
-    assert(bottom_wedge.pivot_y > BATTLE_BOTTOM);
-    assert(bottom_wedge.tip_a_y == BATTLE_BOTTOM - FLIPPER_REACH);
+    point_t top = battleFlipperHinge(PADDLE_TOP, pivot_h);
+    assert(top.x == pivot_h);
+    assert(top.y == BATTLE_TOP + FLIPPER_HINGE_INSET);
 
-    /* clamped so it never extends past the wall's own span, e.g. near a corner */
-    flipper_wedge_t clamped = battleFlipperWedge(PADDLE_RIGHT, PLAYFIELD_TOP);
-    assert(clamped.tip_a_y >= PLAYFIELD_TOP);
+    point_t bottom = battleFlipperHinge(PADDLE_BOTTOM, pivot_h);
+    assert(bottom.x == pivot_h);
+    assert(bottom.y == BATTLE_BOTTOM - FLIPPER_HINGE_INSET);
+
+    /* For an off-center hit, the hinge moves close to the impact and is
+     * pulled back by the tip's tangential projection. At maximum swing the
+     * contact end therefore lands on the recorded impact coordinate. */
+    int high_hit = pivot_v + FLIPPER_MAX_SWING_OFFSET;
+    right = battleFlipperHinge(PADDLE_RIGHT, high_hit);
+    assert(right.y == high_hit - FLIPPER_MAX_TIP_TANGENT_OFFSET);
+    assert(right.y + FLIPPER_MAX_TIP_TANGENT_OFFSET == high_hit);
+
+    int low_hit = pivot_v - FLIPPER_MAX_SWING_OFFSET;
+    left = battleFlipperHinge(PADDLE_LEFT, low_hit);
+    assert(left.y == low_hit + FLIPPER_MAX_TIP_TANGENT_OFFSET);
+    assert(left.y - FLIPPER_MAX_TIP_TANGENT_OFFSET == low_hit);
+
+    int right_hit = pivot_h + FLIPPER_MAX_SWING_OFFSET;
+    top = battleFlipperHinge(PADDLE_TOP, right_hit);
+    assert(top.x == right_hit - FLIPPER_MAX_TIP_TANGENT_OFFSET);
+
+    int left_hit = pivot_h - FLIPPER_MAX_SWING_OFFSET;
+    bottom = battleFlipperHinge(PADDLE_BOTTOM, left_hit);
+    assert(bottom.x == left_hit + FLIPPER_MAX_TIP_TANGENT_OFFSET);
+}
+
+static void test_battle_flipper_angle(void)
+{
+    int pivot_v = (PLAYFIELD_TOP + PLAYFIELD_BOTTOM) / 2;
+    int pivot_h = (BATTLE_LEFT + BATTLE_RIGHT) / 2;
+
+    /* fully retracted (timer 0) always sits at rest, regardless of where
+     * the ball actually hit */
+    assert(battleFlipperAngle(PADDLE_LEFT, pivot_v + 60, 0)
+        == battleFlipperAngle(PADDLE_LEFT, pivot_v - 60, 0));
+
+    /* a hit exactly at the wall's own center never swings, at any timer value */
+    assert(battleFlipperAngle(PADDLE_RIGHT, pivot_v, FLIPPER_FLASH_FRAMES)
+        == battleFlipperAngle(PADDLE_RIGHT, pivot_v, 1));
+
+    /* struck (full timer) swings away from rest; decays back as flip_timer drops */
+    int right_struck = battleFlipperAngle(PADDLE_RIGHT, pivot_v + FLIPPER_MAX_SWING_OFFSET, FLIPPER_FLASH_FRAMES);
+    int right_rest = battleFlipperAngle(PADDLE_RIGHT, pivot_v + FLIPPER_MAX_SWING_OFFSET, 0);
+    assert(right_struck != right_rest);
+
+    /* opposite walls swing in opposite numeric directions for the same
+     * tangent offset, since their rest angles face opposite ways */
+    int left_swing = battleFlipperAngle(PADDLE_LEFT, pivot_v + FLIPPER_MAX_SWING_OFFSET, FLIPPER_FLASH_FRAMES)
+        - battleFlipperAngle(PADDLE_LEFT, pivot_v, FLIPPER_FLASH_FRAMES);
+    int right_swing = battleFlipperAngle(PADDLE_RIGHT, pivot_v + FLIPPER_MAX_SWING_OFFSET, FLIPPER_FLASH_FRAMES)
+        - battleFlipperAngle(PADDLE_RIGHT, pivot_v, FLIPPER_FLASH_FRAMES);
+    assert(left_swing == FLIPPER_MAX_SWING_ANGLE);
+    assert(right_swing == -FLIPPER_MAX_SWING_ANGLE);
+
+    int top_swing = battleFlipperAngle(PADDLE_TOP, pivot_h + FLIPPER_MAX_SWING_OFFSET, FLIPPER_FLASH_FRAMES)
+        - battleFlipperAngle(PADDLE_TOP, pivot_h, FLIPPER_FLASH_FRAMES);
+    int bottom_swing = battleFlipperAngle(PADDLE_BOTTOM, pivot_h + FLIPPER_MAX_SWING_OFFSET, FLIPPER_FLASH_FRAMES)
+        - battleFlipperAngle(PADDLE_BOTTOM, pivot_h, FLIPPER_FLASH_FRAMES);
+    assert(top_swing == -FLIPPER_MAX_SWING_ANGLE);
+    assert(bottom_swing == FLIPPER_MAX_SWING_ANGLE);
+
+    /* offset beyond the max clamps rather than swinging further */
+    int over_max = battleFlipperAngle(PADDLE_LEFT, pivot_v + FLIPPER_MAX_SWING_OFFSET + 50, FLIPPER_FLASH_FRAMES);
+    int at_max = battleFlipperAngle(PADDLE_LEFT, pivot_v + FLIPPER_MAX_SWING_OFFSET, FLIPPER_FLASH_FRAMES);
+    assert(over_max == at_max);
+
+    /* always a valid angle, including when the swing wraps past 0 */
+    int bottom_negative = battleFlipperAngle(PADDLE_BOTTOM, pivot_h - FLIPPER_MAX_SWING_OFFSET, FLIPPER_FLASH_FRAMES);
+    assert(bottom_negative == 230);
+    assert(bottom_negative >= 0 && bottom_negative < 256);
 }
 
 static void test_battle_winner(void)
@@ -677,7 +730,8 @@ int main(void)
     test_battle_elimination();
     test_battle_dead_wall_guaranteed_bounce();
     test_battle_dead_wall_flat_bounce();
-    test_battle_flipper_wedge_geometry();
+    test_battle_flipper_hinge();
+    test_battle_flipper_angle();
     test_battle_winner();
     test_save_format();
     return 0;
