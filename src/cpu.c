@@ -48,32 +48,71 @@ int predictBallYAtX(const ball_t* ball, int target_x)
     return (min_y + offset) >> FIXED_SHIFT;
 }
 
+static bool ballApproaching(paddle_side_t side, const ball_t* ball)
+{
+    switch (side) {
+        case PADDLE_LEFT:
+            return ball->vx < 0;
+        case PADDLE_RIGHT:
+            return ball->vx > 0;
+        case PADDLE_TOP:
+            return ball->vy < 0;
+        case PADDLE_BOTTOM:
+        default:
+            return ball->vy > 0;
+    }
+}
+
+static bool ballOnNearSide(paddle_side_t side, const ball_t* ball)
+{
+    int ball_x = ball->x >> FIXED_SHIFT;
+    int ball_y = ball->y >> FIXED_SHIFT;
+
+    switch (side) {
+        case PADDLE_LEFT:
+            return ball_x < SCREEN_WIDTH / 2;
+        case PADDLE_RIGHT:
+            return ball_x > SCREEN_WIDTH / 2;
+        case PADDLE_TOP:
+            return ball_y < SCREEN_HEIGHT / 2;
+        case PADDLE_BOTTOM:
+        default:
+            return ball_y > SCREEN_HEIGHT / 2;
+    }
+}
+
 void updateCpuPaddle(
     paddle_t* paddle,
     const ball_t* ball,
     cpu_difficulty_t difficulty
 )
 {
-    int target_y = (PLAYFIELD_TOP + PLAYFIELD_BOTTOM) / 2;
+    bool vertical = paddleIsVertical(paddle->side);
+    int target = vertical
+        ? (PLAYFIELD_TOP + PLAYFIELD_BOTTOM) / 2
+        : (BATTLE_LEFT + BATTLE_RIGHT) / 2;
     int speed = CPU_NORMAL_SPEED;
-    int ball_x = ball->x >> FIXED_SHIFT;
+    int ball_tangent = vertical ? (ball->y >> FIXED_SHIFT) : (ball->x >> FIXED_SHIFT);
 
-    if (ball->in_play && ball->vx > 0) {
+    if (ball->in_play && ballApproaching(paddle->side, ball)) {
         if (difficulty == CPU_EASY) {
             speed = CPU_EASY_SPEED;
-            if (ball_x > SCREEN_WIDTH / 2) {
-                target_y = ball->y >> FIXED_SHIFT;
+            if (ballOnNearSide(paddle->side, ball)) {
+                target = ball_tangent;
             }
-        } else if (difficulty == CPU_HARD) {
+        } else if (difficulty == CPU_HARD && vertical) {
             speed = CPU_HARD_SPEED;
-            target_y = predictBallYAtX(
-                ball,
-                paddle->pos.x - BALL_RADIUS
-            );
+            int target_x = paddle->side == PADDLE_RIGHT
+                ? paddle->pos.x - BALL_RADIUS
+                : paddle->pos.x + PADDLE_WIDTH + BALL_RADIUS;
+            target = predictBallYAtX(ball, target_x);
         } else {
-            target_y = ball->y >> FIXED_SHIFT;
+            if (difficulty == CPU_HARD) {
+                speed = CPU_HARD_SPEED;
+            }
+            target = ball_tangent;
         }
     }
 
-    movePaddleToward(paddle, target_y, speed);
+    movePaddleToward(paddle, target, speed);
 }

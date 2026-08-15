@@ -18,7 +18,7 @@ include $(shell cedev-config --makefile)
 # tests run on the host and do not require a calculator ROM.
 HOST_CC ?= cc
 UNIT_TEST_BIN = tests/build/test_game
-UNIT_TEST_SOURCES = tests/test_game.c src/ball.c src/collision.c src/cpu.c src/match.c \
+UNIT_TEST_SOURCES = tests/test_game.c src/ball.c src/battle.c src/collision.c src/cpu.c src/match.c \
 	src/paddle.c src/rally.c src/save_format.c
 UNIT_TEST_HEADERS = $(wildcard src/*.h tests/include/*.h)
 

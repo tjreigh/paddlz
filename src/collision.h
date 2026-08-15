@@ -7,5 +7,6 @@
 #include "paddle.h"
 
 bool checkPaddleCollision(ball_t* ball, const paddle_t* paddle);
+int computeDeflection(int offset, int max_offset);
 
 #endif

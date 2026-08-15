@@ -1,6 +1,8 @@
 #ifndef PADDLE_H
 #define PADDLE_H
 
+#include <stdbool.h>
+
 #define PADDLE_WIDTH 8
 #define PADDLE_LEN 60
 #define PADDLE_MARGIN 2
@@ -23,7 +25,9 @@ typedef enum dir_t
 typedef enum paddle_side_t
 {
 	PADDLE_LEFT,
-	PADDLE_RIGHT
+	PADDLE_RIGHT,
+	PADDLE_TOP,
+	PADDLE_BOTTOM
 } paddle_side_t;
 
 typedef struct paddle_t
@@ -33,7 +37,9 @@ typedef struct paddle_t
 }
 paddle_t;
 
+bool paddleIsVertical(paddle_side_t);
 void initPaddle(paddle_t*, paddle_side_t);
+void initBattlePaddle(paddle_t*, paddle_side_t);
 void movePaddle(paddle_t*, dir_t, int);
 void movePaddleToward(paddle_t*, int, int);
 void drawPaddle(paddle_t*);
